@@ -3,12 +3,10 @@ LOCAL_PATH:= $(call my-dir)
 mini_src_files := \
 	VolumeManager.cpp \
 	CommandListener.cpp \
-	CryptCommandListener.cpp \
 	VoldCommand.cpp \
 	NetlinkManager.cpp \
 	NetlinkHandler.cpp \
 	Process.cpp \
-	fs/Exfat.cpp \
 	fs/Ext4.cpp \
 	fs/F2fs.cpp \
 	fs/Ntfs.cpp \
@@ -17,9 +15,7 @@ mini_src_files := \
 	Devmapper.cpp \
 	ResponseCode.cpp \
 	CheckBattery.cpp \
-	Ext4Crypt.cpp \
 	VoldUtil.c \
-	cryptfs.cpp \
 	Disk.cpp \
 	DiskPartition.cpp \
 	VolumeBase.cpp \
@@ -30,17 +26,21 @@ mini_src_files := \
 	MoveTask.cpp \
 	Benchmark.cpp \
 	TrimTask.cpp \
-	ScryptParameters.cpp \
 	secontext.cpp \
-	EncryptInplace.cpp \
-	MetadataCrypt.cpp
+	main.cpp
 
 full_src_files := \
 	$(mini_src_files) \
+	CryptCommandListener.cpp \
+	Ext4Crypt.cpp \
+	cryptfs.cpp \
 	KeyBuffer.cpp \
 	Keymaster.cpp \
 	KeyStorage.cpp \
-	KeyUtil.cpp
+	KeyUtil.cpp \
+	EncryptInplace.cpp \
+	ScryptParameters.cpp \
+	MetadataCrypt.cpp
 
 common_c_includes := \
 	system/extras/f2fs_utils \
@@ -59,12 +59,12 @@ common_libraries := \
 	liblog \
 	libdiskconfig \
 	liblogwrap \
-	libf2fs_sparseblock \
 	libselinux \
 	libutils
 
 common_shared_libraries := \
 	$(common_libraries) \
+	libf2fs_sparseblock \
 	libhardware_legacy \
 	libext4_utils \
 	libcrypto \
@@ -80,6 +80,7 @@ common_static_libraries := \
 	libfec \
 	libfec_rs \
 	libext4_utils \
+	libf2fs_sparseblock_static \
 	libsparse \
 	libsquashfs_utils \
 	libscrypt_static \
@@ -114,12 +115,10 @@ ifeq ($(TARGET_HW_DISK_ENCRYPTION),true)
   vold_cflags += -DCONFIG_HW_DISK_ENCRYPTION
 endif
 
-ifeq ($(TARGET_KERNEL_HAVE_EXFAT),true)
-  vold_cflags += -DCONFIG_KERNEL_HAVE_EXFAT
-endif
-
-ifeq ($(TARGET_KERNEL_HAVE_NTFS),true)
-  vold_cflags += -DCONFIG_KERNEL_HAVE_NTFS
+ifneq ($(TARGET_EXFAT_DRIVER),)
+  vold_cflags += -DCONFIG_EXFAT_DRIVER=\"$(TARGET_EXFAT_DRIVER)\"
+  mini_src_files += fs/Exfat.cpp
+  full_src_files += fs/Exfat.cpp
 endif
 
 include $(CLEAR_VARS)
@@ -150,7 +149,6 @@ LOCAL_TIDY := true
 LOCAL_TIDY_FLAGS := $(common_local_tidy_flags)
 LOCAL_TIDY_CHECKS := $(common_local_tidy_checks)
 LOCAL_SRC_FILES := \
-	main.cpp \
 	vold.c
 
 LOCAL_INIT_RC := vold.rc
@@ -224,7 +222,7 @@ LOCAL_STATIC_LIBRARIES := libminivold
 LOCAL_STATIC_LIBRARIES += libc libc++_static libm
 LOCAL_STATIC_LIBRARIES += libbase
 LOCAL_STATIC_LIBRARIES += $(common_static_libraries) $(common_libraries)
-LOCAL_STATIC_LIBRARIES += libcrypto_static libext2_uuid libvold
+LOCAL_STATIC_LIBRARIES += libcrypto_static libext2_uuid
 LOCAL_STATIC_LIBRARIES += libnl
 LOCAL_SHARED_LIBRARIES := $(common_shared_libraries)
 LOCAL_FORCE_STATIC_EXECUTABLE := true

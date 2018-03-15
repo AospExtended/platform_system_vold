@@ -39,6 +39,8 @@
 
 using android::base::StringPrintf;
 
+using namespace std::chrono_literals;
+
 namespace android {
 namespace vold {
 
@@ -62,6 +64,9 @@ status_t PrivateVolume::readMetadata() {
 }
 
 status_t PrivateVolume::doCreate() {
+#ifdef MINIVOLD
+    return -EIO;
+#else
     if (CreateDeviceNode(mRawDevPath, mRawDevice)) {
         return -EIO;
     }
@@ -82,13 +87,18 @@ status_t PrivateVolume::doCreate() {
     }
 
     return OK;
+#endif
 }
 
 status_t PrivateVolume::doDestroy() {
+#ifdef MINIVOLD
+    return -EIO;
+#else
     if (cryptfs_revert_ext_volume(getId().c_str())) {
         LOG(ERROR) << getId() << " failed to revert cryptfs";
     }
     return DestroyDeviceNode(mRawDevPath);
+#endif
 }
 
 status_t PrivateVolume::doMount() {
@@ -184,6 +194,11 @@ status_t PrivateVolume::doFormat(const std::string& fsType) {
             resolvedFsType = "ext4";
         }
         LOG(DEBUG) << "Resolved auto to " << resolvedFsType;
+    }
+
+    if (!WaitForFile(mDmDevPath, 15s)) {
+        PLOG(ERROR) << "Timed out waiting for " << getId();
+        return -EIO;
     }
 
     if (resolvedFsType == "ext4") {
